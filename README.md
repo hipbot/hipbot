@@ -8,11 +8,15 @@ The primary interface is to register one or more Handler funcs that have a signa
 
 Handlers are registered using:
 
-    AddHandler(pattern string, func Handler)
+    AddHandler(pattern string, h Handler, f ...Filter)
+
 
 When a message appears in a room that the bot is subscribed to, it will look for messages starting with the nickname of the bot.  If that is found, it will then look at the rest of the message and see if any patterns registered by `AddHandler` match.  If so, the Handler with the longest matching pattern will be called.  
 
-The text passed to a Handler will have the bot nickname and the pattern it was registered with stripped out.  If the returned string is not empty, hipbot will send the message.
+The text passed to a Handler will have the bot nickname and the pattern it was registered with stripped out.  If any `Filter` functions were passed in during the `AddHandler` call, each of those will be called with the Message.  If any Filter returns false, the string from the Filter will be returned and the Handler will not be called.
+
+
+If the returned string is not empty, hipbot will send the message.
 
 Example usage:
 
@@ -48,3 +52,18 @@ A help Handler can be registered with:
   bot.AddHelp(handler)
 
 This would be executed when a user types a message starting with the bot nick that doesn't match any Handler patterns.
+
+Example with a Filter for access control:
+
+    // accessCheck validates the user is one of our allowed users
+    func accessCheck(m hipbot.Message) (string, bool) {
+      sender := m.Sender()
+      for _, user := range allowedUsers {
+        if user == sender {
+          return "", true
+        }
+      }
+      return "sorry, access denied", false
+    }
+
+    bot.AddHandler("ping",pong,accessCheck)

@@ -35,7 +35,12 @@ type (
 		From string
 	}
 
+	// Filter provides a way to perform checks before invoking a Handler
+	// Handlers will only be invoked if all Filters return true
+	Filter func(m Message) (string, bool)
+
 	handleMatcher struct {
+		Filters []Filter
 		Pattern string
 		Handler Handler
 	}
@@ -93,8 +98,9 @@ func (b *Bot) AddHelp(h Handler) {
 }
 
 // AddHandler registers a Handler for callbacks that will be invoked when the pattern is matched.
-func (b *Bot) AddHandler(pattern string, h Handler) {
-	b.handlers = append(b.handlers, handleMatcher{pattern, h})
+// If Filters are passed, all must return true before a Handler is invoked
+func (b *Bot) AddHandler(pattern string, h Handler, f ...Filter) {
+	b.handlers = append(b.handlers, handleMatcher{Pattern: pattern, Handler: h, Filters: f})
 	sort.Sort(b.handlers)
 }
 
@@ -143,6 +149,11 @@ func (b *Bot) handle(xmppMsg xmpp.Chat) string {
 	for _, h := range b.handlers {
 		if strings.HasPrefix(msg.Text, h.Pattern) {
 			msg.Text = strings.TrimSpace(strings.TrimPrefix(msg.Text, h.Pattern))
+			for _, f := range h.Filters {
+				if resp, ok := f(msg); !ok {
+					return resp
+				}
+			}
 			return h.Handler(msg)
 		}
 	}

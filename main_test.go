@@ -24,8 +24,24 @@ func pongping(msg Message) string {
 	return "pongping"
 }
 
-func Help(msg Message) string {
+func f1(msg Message) string {
+	return "f1"
+}
+
+func f2(msg Message) string {
+	return "f2"
+}
+
+func help(msg Message) string {
 	return sorry
+}
+
+func passFilter(msg Message) (string, bool) {
+	return "passed", true
+}
+
+func failFilter(msg Message) (string, bool) {
+	return "filtered", false
 }
 
 func TestBotLogin(t *testing.T) {
@@ -42,18 +58,23 @@ func TestBotLogin(t *testing.T) {
 	bot.AddHandler("pong", ping)
 	bot.AddHandler("pi", po)
 	bot.AddHandler("pingpong", pongping)
+	bot.AddHandler("f1", f1, passFilter)
+	bot.AddHandler("f2", f2, failFilter)
 	err = bot.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	HandlerTests := []struct {
-		sent     string
-		expected string
+		sent        string
+		expected    string
+		description string
 	}{
-		{"ping", "pong"},
-		{"pingpong", "pongping"},
-		{"pong", "ping"},
-		{"pi", "po"},
+		{"ping", "pong", "medium string match"},
+		{"pingpong", "pongping", "longer string match"},
+		{"pong", "ping", "short string match"},
+		{"pi", "po", "short string match"},
+		{"f1", "f1", "filter used that passes"},
+		{"f2", "filtered", "filter used that rejects"},
 	}
 	for _, test := range HandlerTests {
 		msg := xmpp.Chat{Text: test.sent}
@@ -71,7 +92,7 @@ func TestBotLogin(t *testing.T) {
 	} else {
 		t.Log("expected empty result when sending unmatched message and help not added")
 	}
-	bot.AddHelp(Help)
+	bot.AddHelp(help)
 	resp = bot.handle(msg)
 	if resp != sorry {
 		t.Errorf("help did not return expected text")
