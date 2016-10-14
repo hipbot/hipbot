@@ -142,6 +142,8 @@ func (b *Bot) sentByMe(remote string) bool {
 }
 
 func (b *Bot) handle(xmppMsg xmpp.Chat) string {
+	// handle case where the bot name is spelled with capital letter
+	xmppMsg.Text = strings.TrimPrefix(xmppMsg.Text,strings.Title(b.config.Nick))
 	msg := Message{
 		Text: strings.TrimSpace(strings.TrimPrefix(xmppMsg.Text, b.config.Nick)),
 		From: xmppMsg.Remote,
@@ -178,7 +180,7 @@ func (b *Bot) toMe(msg xmpp.Chat) bool {
 
 	// only pass back group messages if they start with nick
 	if msg.Type == groupchat {
-		return strings.HasPrefix(msg.Text, b.config.Nick)
+		return strings.HasPrefix(strings.ToLower(msg.Text), strings.ToLower(b.config.Nick))
 	}
 
 	// direct message
