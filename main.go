@@ -25,6 +25,7 @@ type (
 		Password string
 		Debug    bool
 		TLS      *tls.Config
+		DirectMessages bool
 	}
 
 	// Message represents an XMPP message
@@ -183,8 +184,8 @@ func (b *Bot) toMe(msg xmpp.Chat) bool {
 		return strings.HasPrefix(strings.ToLower(msg.Text), strings.ToLower(b.config.Nick))
 	}
 
-	// direct message
-	return true
+	//  direct messages
+	return b.config.DirectMessages
 }
 
 // listen collects incoming XMPP events and performs callbacks
