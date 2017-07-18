@@ -17,23 +17,25 @@ const (
 type (
 	// Config holds the configuration for the bot
 	Config struct {
-		JabberID string
-		Nick     string
-		FullName string
-		Host     string
-		Rooms    []string
-		Password string
-		Debug    bool
-		TLS      *tls.Config
+		JabberID       string
+		Nick           string
+		FullName       string
+		Host           string
+		Rooms          []string
+		Password       string
+		Debug          bool
+		TLS            *tls.Config
 		DirectMessages bool
 	}
 
 	// Message represents an XMPP message
 	Message struct {
-		// Text of the message
+		// Text of the message after nick and handler prefix are stripped
 		Text string
 		// From contains the JID and Name of the sender separated by a /
 		From string
+		// FullText contains the original text
+		FullText string
 	}
 
 	// Filter provides a way to perform checks before invoking a Handler
@@ -143,11 +145,13 @@ func (b *Bot) sentByMe(remote string) bool {
 }
 
 func (b *Bot) handle(xmppMsg xmpp.Chat) string {
+	fullText := xmppMsg.Text
 	// handle case where the bot name is spelled with capital letter
-	xmppMsg.Text = strings.TrimPrefix(xmppMsg.Text,strings.Title(b.config.Nick))
+	xmppMsg.Text = strings.TrimPrefix(xmppMsg.Text, strings.Title(b.config.Nick))
 	msg := Message{
-		Text: strings.TrimSpace(strings.TrimPrefix(xmppMsg.Text, b.config.Nick)),
-		From: xmppMsg.Remote,
+		Text:     strings.TrimSpace(strings.TrimPrefix(xmppMsg.Text, b.config.Nick)),
+		From:     xmppMsg.Remote,
+		FullText: fullText,
 	}
 	for _, h := range b.handlers {
 		if strings.HasPrefix(msg.Text, h.Pattern) {
