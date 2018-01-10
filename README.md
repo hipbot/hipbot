@@ -67,3 +67,5 @@ Example with a Filter for access control:
     }
 
     bot.AddHandler("ping",pong,accessCheck)
+
+To listen for errors (such as remote server went away), after calling bot.Start(), listen on the bot.Error error chan.  Calling bot.Stop() will close the Error chan. 
