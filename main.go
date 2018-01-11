@@ -115,6 +115,9 @@ func (b *Bot) AddHandler(pattern string, h Handler, f ...Filter) {
 
 // SendRoom sends a message to a room.
 func (b *Bot) SendRoom(msg string, room string) error {
+	if b.stopped {
+		return nil
+	}
 	xmppMsg := xmpp.Chat{Text: msg, Type: groupchat, Remote: room}
 	_, err := b.xmpp.Send(xmppMsg)
 	return err
@@ -122,12 +125,18 @@ func (b *Bot) SendRoom(msg string, room string) error {
 
 // SendUser sends a message privately to a user.
 func (b *Bot) SendUser(msg string, user string) error {
+	if b.stopped {
+		return nil
+	}
 	xmppMsg := xmpp.Chat{Text: msg, Type: "chat", Remote: user}
 	_, err := b.xmpp.Send(xmppMsg)
 	return err
 }
 
 func (b *Bot) send(msg xmpp.Chat) error {
+	if b.stopped {
+		return nil
+	}
 	_, err := b.xmpp.Send(msg)
 	return err
 }
