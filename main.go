@@ -2,6 +2,7 @@ package hipbot
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -84,12 +85,19 @@ func (h handleMatchers) Swap(i, j int) {
 // heartbeat sends periodic pings to keep connection alive until the stop channel is closed
 func (b *Bot) heartbeat() {
 	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 	for {
-		b.xmpp.PingC2S(b.config.JabberID, "")
+		err := b.xmpp.PingC2S(b.config.JabberID, "")
+		if err != nil {
+			if b.stopped {
+				return
+			}
+			b.Errors <- err
+			return
+		}
 		select {
 		case <-ticker.C:
 		case <-b.stop:
-			ticker.Stop()
 			return
 		}
 	}
@@ -114,6 +122,9 @@ func (b *Bot) AddHandler(pattern string, h Handler, f ...Filter) {
 
 // SendRoom sends a message to a room.
 func (b *Bot) SendRoom(msg string, room string) error {
+	if b.stopped {
+		return nil
+	}
 	xmppMsg := xmpp.Chat{Text: msg, Type: groupchat, Remote: room}
 	_, err := b.xmpp.Send(xmppMsg)
 	return err
@@ -121,12 +132,18 @@ func (b *Bot) SendRoom(msg string, room string) error {
 
 // SendUser sends a message privately to a user.
 func (b *Bot) SendUser(msg string, user string) error {
+	if b.stopped {
+		return nil
+	}
 	xmppMsg := xmpp.Chat{Text: msg, Type: "chat", Remote: user}
 	_, err := b.xmpp.Send(xmppMsg)
 	return err
 }
 
 func (b *Bot) send(msg xmpp.Chat) error {
+	if b.stopped {
+		return nil
+	}
 	_, err := b.xmpp.Send(msg)
 	return err
 }
@@ -211,6 +228,8 @@ func (b *Bot) listen() {
 		}
 		if err != nil {
 			select {
+			case <-b.stop:
+				return
 			// only send an error to the channel if someone is reading from it
 			case b.Errors <- err:
 			}
@@ -230,12 +249,33 @@ func (b *Bot) listen() {
 	}
 }
 
-// Start listens for XMPP messages and joins any rooms
+// Start listens for XMPP messages and joins any rooms and creates the Errors chan
 func (b *Bot) Start() error {
+	if !b.stopped {
+		return errors.New("Start() called again before Stop()")
+	}
+	options := &xmpp.Options{
+		Host:      b.config.Host,
+		User:      b.config.JabberID,
+		Debug:     b.config.Debug,
+		Password:  b.config.Password,
+		Resource:  "bot",
+		StartTLS:  false,
+		NoTLS:     true,
+		TLSConfig: b.config.TLS,
+	}
+	var err error
+	b.xmpp, err = options.NewClient()
+	if err != nil {
+		return err
+	}
+	b.Errors = make(chan error)
+	b.stop = make(chan bool)
+	b.stopped = false
 	go b.listen()
 	go b.heartbeat()
 	for _, room := range b.config.Rooms {
-		_, err := b.xmpp.JoinMUCNoHistory(room, b.config.FullName)
+		_, err = b.xmpp.JoinMUCNoHistory(room, b.config.FullName)
 		if err != nil {
 			return err
 		}
@@ -243,8 +283,11 @@ func (b *Bot) Start() error {
 	return nil
 }
 
-// Stop terminates the XMPP connection
+// Stop closes the XMPP connection and channels
 func (b *Bot) Stop() {
+	if b.stopped {
+		return
+	}
 	b.stopped = true
 	close(b.stop)
 	b.xmpp.Close()
@@ -253,22 +296,25 @@ func (b *Bot) Stop() {
 
 // New generates a new bot
 func New(cfg Config) (*Bot, error) {
+	if cfg.Host == "" {
+		return nil, errors.New("missing host configuration")
+	}
+	if cfg.Password == "" {
+		return nil, errors.New("missing password configuration")
+	}
+	if cfg.Nick == "" {
+		return nil, errors.New("missing nick configuration")
+	}
+	if cfg.FullName == "" {
+		return nil, errors.New("missing fullname configuration")
+	}
+	if cfg.JabberID == "" {
+		return nil, errors.New("missing jabberID configuration")
+	}
 	b := &Bot{
-		config: cfg,
-		stop:   make(chan bool),
-		Errors: make(chan error),
+		config:  cfg,
+		stopped: true,
 	}
-	options := &xmpp.Options{
-		Host:      cfg.Host,
-		User:      cfg.JabberID,
-		Debug:     cfg.Debug,
-		Password:  cfg.Password,
-		Resource:  "bot",
-		StartTLS:  false,
-		NoTLS:     true,
-		TLSConfig: cfg.TLS,
-	}
-	var err error
-	b.xmpp, err = options.NewClient()
-	return b, err
+	return b, nil
+
 }
