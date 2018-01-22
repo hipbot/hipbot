@@ -95,6 +95,11 @@ func (b *Bot) heartbeat() {
 	}
 }
 
+// Stopped returns if the bot is stopped
+func (b *Bot) Stopped() bool {
+	return b.stopped
+}
+
 // AddHelp registers a Handler that can be called if no other handlers match.
 func (b *Bot) AddHelp(h Handler) {
 	b.help = h
