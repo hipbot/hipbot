@@ -113,6 +113,13 @@ func (b *Bot) AddHelp(h Handler) {
 	b.help = h
 }
 
+// JoinRoom joins a room without history
+func (b *Bot) JoinRoom(room string) error {
+	var err error
+	_, err = b.xmpp.JoinMUCNoHistory(room, b.config.FullName)
+	return err
+}
+
 // AddHandler registers a Handler for callbacks that will be invoked when the pattern is matched.
 // If Filters are passed, all must return true before a Handler is invoked
 func (b *Bot) AddHandler(pattern string, h Handler, f ...Filter) {
